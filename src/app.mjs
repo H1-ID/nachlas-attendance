@@ -95,12 +95,15 @@ async function runSqlFile(name){
   const p=path.join(rootDir,'sql',name); if(fs.existsSync(p)) await q(fs.readFileSync(p,'utf8'));
 }
 async function initDb(){
-  await runSqlFile('schema.sql');
-  await runSqlFile('002_multi_tenant.sql');
+  const autoMigrate = !IS_PROD || String(process.env.AUTO_MIGRATE || '').toLowerCase() === 'true';
+  if (autoMigrate) {
+    await runSqlFile('schema.sql');
+    await runSqlFile('002_multi_tenant.sql');
+  }
 
   let org=(await q('SELECT * FROM organizations ORDER BY id LIMIT 1')).rows[0];
   if(!org){
-    const name=process.env.DEFAULT_ORG_NAME || 'הארגון שלי';
+    const name=process.env.DEFAULT_ORG_NAME || '׳”׳׳¨׳’׳•׳ ׳©׳׳™';
     org=(await q('INSERT INTO organizations(name,slug) VALUES($1,$2) RETURNING *',[name,slugify(process.env.DEFAULT_ORG_SLUG||name)])).rows[0];
   }
 
@@ -110,7 +113,7 @@ async function initDb(){
     let user=(await q('SELECT * FROM users WHERE lower(email)=lower($1)',[email])).rows[0];
     if(!user){
       const hash=await bcrypt.hash(pass,11);
-      user=(await q('INSERT INTO users(name,email,password_hash) VALUES($1,$2,$3) RETURNING *',['מנהל מערכת',email,hash])).rows[0];
+      user=(await q('INSERT INTO users(name,email,password_hash) VALUES($1,$2,$3) RETURNING *',['׳׳ ׳”׳ ׳׳¢׳¨׳›׳×',email,hash])).rows[0];
     }
     await q(`INSERT INTO organization_members(organization_id,user_id,role,active) VALUES($1,$2,'admin',true)
       ON CONFLICT(organization_id,user_id) DO UPDATE SET active=true`,[org.id,user.id]);
@@ -119,12 +122,12 @@ async function initDb(){
   if(String(process.env.SEED_DEMO).toLowerCase()==='true') await seedDemo(org.id);
 }
 async function seedDemo(orgId){
-  const sys=(await q(`INSERT INTO yemot_systems(organization_id,name,system_number) VALUES($1,'מערכת הדגמה','000000000')
+  const sys=(await q(`INSERT INTO yemot_systems(organization_id,name,system_number) VALUES($1,'׳׳¢׳¨׳›׳× ׳”׳“׳’׳׳”','000000000')
     ON CONFLICT(organization_id,system_number) DO UPDATE SET name=EXCLUDED.name RETURNING id`,[orgId])).rows[0];
   const c=(await q(`INSERT INTO classes(organization_id,yemot_system_id,name,extension_path,start_time,end_time,late_after_minutes,min_present_minutes)
-    VALUES($1,$2,'שיעור ב','07/1/2','09:00','10:00',10,20)
+    VALUES($1,$2,'׳©׳™׳¢׳•׳¨ ׳‘','07/1/2','09:00','10:00',10,20)
     ON CONFLICT(organization_id,name) DO UPDATE SET extension_path=EXCLUDED.extension_path RETURNING id`,[orgId,sys.id])).rows[0];
-  for(const [name,phone] of [['ישראל כהן','0500000001'],['משה לוי','0500000002'],['דוד פרידמן','0500000003']])
+  for(const [name,phone] of [['׳™׳©׳¨׳׳ ׳›׳”׳','0500000001'],['׳׳©׳” ׳׳•׳™','0500000002'],['׳“׳•׳“ ׳₪׳¨׳™׳“׳׳','0500000003']])
     await q(`INSERT INTO students(organization_id,name,phone,class_id) VALUES($1,$2,$3,$4)
       ON CONFLICT(organization_id,phone) DO NOTHING`,[orgId,name,phone,c.id]);
 }
@@ -140,8 +143,8 @@ app.get('/api/health',async(_req,res)=>{
 app.post('/api/auth/login',async(req,res)=>{
   const email=String(req.body.email||'').trim().toLowerCase();
   const user=(await q('SELECT * FROM users WHERE lower(email)=lower($1) AND active=true',[email])).rows[0];
-  if(!user || !(await bcrypt.compare(String(req.body.password||''),user.password_hash))) return res.status(401).json({error:'פרטי כניסה שגויים'});
-  const orgs=await organizationsForUser(user.id); if(!orgs.length) return res.status(403).json({error:'המשתמש אינו משויך לארגון פעיל'});
+  if(!user || !(await bcrypt.compare(String(req.body.password||''),user.password_hash))) return res.status(401).json({error:'׳₪׳¨׳˜׳™ ׳›׳ ׳™׳¡׳” ׳©׳’׳•׳™׳™׳'});
+  const orgs=await organizationsForUser(user.id); if(!orgs.length) return res.status(403).json({error:'׳”׳׳©׳×׳׳© ׳׳™׳ ׳• ׳׳©׳•׳™׳ ׳׳׳¨׳’׳•׳ ׳₪׳¢׳™׳'});
   const org=orgs[0]; setSession(res,user.id,org.id);
   const payload={id:user.id,name:user.name,email:user.email,role:org.role,class_id:org.class_id,organization_id:org.id,organization_name:org.name};
   await q('INSERT INTO audit_log(organization_id,user_id,action) VALUES($1,$2,$3)',[org.id,user.id,'login']).catch(()=>{});
@@ -151,7 +154,7 @@ app.post('/api/auth/logout',auth,async(req,res)=>{res.clearCookie('nachlas_sessi
 app.get('/api/auth/me',auth,async(req,res)=>res.json({user:publicUser(req.user),organizations:await organizationsForUser(req.user.id)}));
 app.post('/api/auth/switch-organization',auth,async(req,res)=>{
   const oid=Number(req.body.organization_id); const orgs=await organizationsForUser(req.user.id); const org=orgs.find(x=>Number(x.id)===oid);
-  if(!org)return res.status(403).json({error:'אין הרשאה לארגון זה'}); setSession(res,req.user.id,org.id);
+  if(!org)return res.status(403).json({error:'׳׳™׳ ׳”׳¨׳©׳׳” ׳׳׳¨׳’׳•׳ ׳–׳”'}); setSession(res,req.user.id,org.id);
   res.json({ok:true,organization:org});
 });
 
@@ -159,12 +162,12 @@ app.get('/api/organization',auth,async(req,res)=>{
   res.json((await q('SELECT id,name,slug,active,created_at FROM organizations WHERE id=$1',[req.user.organization_id])).rows[0]);
 });
 app.put('/api/organization',auth,allow('admin'),async(req,res)=>{
-  const name=String(req.body.name||'').trim(); if(!name)return res.status(400).json({error:'שם הארגון חסר'});
+  const name=String(req.body.name||'').trim(); if(!name)return res.status(400).json({error:'׳©׳ ׳”׳׳¨׳’׳•׳ ׳—׳¡׳¨'});
   const r=await q('UPDATE organizations SET name=$1,updated_at=NOW() WHERE id=$2 RETURNING id,name,slug',[name,req.user.organization_id]);
   await audit(req,'update','organization',String(req.user.organization_id),{name}); res.json(r.rows[0]);
 });
 app.post('/api/organizations',auth,allow('admin'),async(req,res)=>{
-  const name=String(req.body.name||'').trim(); if(!name)return res.status(400).json({error:'שם הארגון חסר'});
+  const name=String(req.body.name||'').trim(); if(!name)return res.status(400).json({error:'׳©׳ ׳”׳׳¨׳’׳•׳ ׳—׳¡׳¨'});
   let slug=slugify(req.body.slug||name); if((await q('SELECT 1 FROM organizations WHERE slug=$1',[slug])).rowCount)slug+=`-${Date.now().toString(36)}`;
   const client=await pool.connect();
   try{await client.query('BEGIN');const org=(await client.query('INSERT INTO organizations(name,slug) VALUES($1,$2) RETURNING id,name,slug',[name,slug])).rows[0];await client.query("INSERT INTO organization_members(organization_id,user_id,role) VALUES($1,$2,'admin')",[org.id,req.user.id]);await client.query('COMMIT');res.json(org);}catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
@@ -179,7 +182,7 @@ app.get('/api/yemot-systems',auth,async(req,res)=>{
 });
 app.post('/api/yemot-systems',auth,allow('admin'),async(req,res)=>{
   const name=String(req.body.name||'').trim(); const systemNumber=normalizeSystemNumber(req.body.system_number);
-  if(!name)return res.status(400).json({error:'שם המערכת חסר'}); if(systemNumber.length<5)return res.status(400).json({error:'מספר המערכת אינו תקין'});
+  if(!name)return res.status(400).json({error:'׳©׳ ׳”׳׳¢׳¨׳›׳× ׳—׳¡׳¨'}); if(systemNumber.length<5)return res.status(400).json({error:'׳׳¡׳₪׳¨ ׳”׳׳¢׳¨׳›׳× ׳׳™׳ ׳• ׳×׳§׳™׳'});
   const apiKey=String(req.body.api_key||'').trim(); const encrypted=apiKey?encryptSecret(apiKey):null; const status=apiKey?'configured':'pending_api';
   const r=await q(`INSERT INTO yemot_systems(organization_id,name,system_number,api_key_encrypted,api_status)
     VALUES($1,$2,$3,$4,$5) RETURNING id,name,system_number,api_status,active,created_at`,[req.user.organization_id,name,systemNumber,encrypted,status]);
@@ -187,7 +190,7 @@ app.post('/api/yemot-systems',auth,allow('admin'),async(req,res)=>{
 });
 app.put('/api/yemot-systems/:id',auth,allow('admin'),async(req,res)=>{
   const existing=(await q('SELECT * FROM yemot_systems WHERE id=$1 AND organization_id=$2',[req.params.id,req.user.organization_id])).rows[0];
-  if(!existing)return res.status(404).json({error:'המערכת לא נמצאה'});
+  if(!existing)return res.status(404).json({error:'׳”׳׳¢׳¨׳›׳× ׳׳ ׳ ׳׳¦׳׳”'});
   const name=String(req.body.name??existing.name).trim(); const systemNumber=normalizeSystemNumber(req.body.system_number??existing.system_number);
   const apiKey=String(req.body.api_key||'').trim(); const encrypted=apiKey?encryptSecret(apiKey):existing.api_key_encrypted; const status=encrypted?'configured':'pending_api';
   const r=await q(`UPDATE yemot_systems SET name=$1,system_number=$2,api_key_encrypted=$3,api_status=$4,active=$5,updated_at=NOW()
@@ -200,8 +203,8 @@ app.delete('/api/yemot-systems/:id',auth,allow('admin'),async(req,res)=>{
 });
 app.post('/api/yemot-systems/:id/test',auth,allow('admin'),async(req,res)=>{
   const s=(await q('SELECT id,api_key_encrypted FROM yemot_systems WHERE id=$1 AND organization_id=$2 AND active=true',[req.params.id,req.user.organization_id])).rows[0];
-  if(!s)return res.status(404).json({error:'המערכת לא נמצאה'}); if(!s.api_key_encrypted)return res.status(400).json({error:'עדיין לא הוגדר API Key למערכת זו'});
-  res.status(501).json({error:'המפתח נשמר בצורה מוצפנת. בדיקת GetIncomingCalls תחובר כשיתקבל מפרט ה-API הסופי.'});
+  if(!s)return res.status(404).json({error:'׳”׳׳¢׳¨׳›׳× ׳׳ ׳ ׳׳¦׳׳”'}); if(!s.api_key_encrypted)return res.status(400).json({error:'׳¢׳“׳™׳™׳ ׳׳ ׳”׳•׳’׳“׳¨ API Key ׳׳׳¢׳¨׳›׳× ׳–׳•'});
+  res.status(501).json({error:'׳”׳׳₪׳×׳— ׳ ׳©׳׳¨ ׳‘׳¦׳•׳¨׳” ׳׳•׳¦׳₪׳ ׳×. ׳‘׳“׳™׳§׳× GetIncomingCalls ׳×׳—׳•׳‘׳¨ ׳›׳©׳™׳×׳§׳‘׳ ׳׳₪׳¨׳˜ ׳”-API ׳”׳¡׳•׳₪׳™.'});
 });
 
 async function validClass(orgId,classId){if(!classId)return true;return (await q('SELECT 1 FROM classes WHERE id=$1 AND organization_id=$2',[classId,orgId])).rowCount>0;}
@@ -224,16 +227,16 @@ app.get('/api/classes',auth,async(req,res)=>{
     FROM classes c LEFT JOIN yemot_systems y ON y.id=c.yemot_system_id WHERE ${wh} ORDER BY c.name`,p); res.json(r.rows);
 });
 app.post('/api/classes',auth,allow('admin','secretary'),async(req,res)=>{
-  const b=req.body; if(!(await validSystem(req.user.organization_id,b.yemot_system_id)))return res.status(400).json({error:'מערכת ימות אינה שייכת לארגון'});
+  const b=req.body; if(!(await validSystem(req.user.organization_id,b.yemot_system_id)))return res.status(400).json({error:'׳׳¢׳¨׳›׳× ׳™׳׳•׳× ׳׳™׳ ׳” ׳©׳™׳™׳›׳× ׳׳׳¨׳’׳•׳'});
   const r=await q(`INSERT INTO classes(organization_id,yemot_system_id,name,extension_path,weekdays,start_time,end_time,late_after_minutes,min_present_minutes,active)
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,[req.user.organization_id,b.yemot_system_id||null,b.name,b.extension_path||'',b.weekdays||[0,1,2,3,4,5,6],b.start_time||'09:00',b.end_time||'10:00',Number(b.late_after_minutes||10),Number(b.min_present_minutes||20),b.active!==false]);
   await audit(req,'create','class',String(r.rows[0].id),{name:b.name,extension_path:b.extension_path,yemot_system_id:b.yemot_system_id||null});res.json(r.rows[0]);
 });
 app.put('/api/classes/:id',auth,allow('admin','secretary'),async(req,res)=>{
-  const b=req.body;if(!(await validSystem(req.user.organization_id,b.yemot_system_id)))return res.status(400).json({error:'מערכת ימות אינה שייכת לארגון'});
+  const b=req.body;if(!(await validSystem(req.user.organization_id,b.yemot_system_id)))return res.status(400).json({error:'׳׳¢׳¨׳›׳× ׳™׳׳•׳× ׳׳™׳ ׳” ׳©׳™׳™׳›׳× ׳׳׳¨׳’׳•׳'});
   const r=await q(`UPDATE classes SET yemot_system_id=$1,name=$2,extension_path=$3,weekdays=$4,start_time=$5,end_time=$6,late_after_minutes=$7,min_present_minutes=$8,active=$9,updated_at=NOW()
     WHERE id=$10 AND organization_id=$11 RETURNING *`,[b.yemot_system_id||null,b.name,b.extension_path||'',b.weekdays||[0,1,2,3,4,5,6],b.start_time,b.end_time,Number(b.late_after_minutes||10),Number(b.min_present_minutes||20),b.active!==false,req.params.id,req.user.organization_id]);
-  if(!r.rowCount)return res.status(404).json({error:'השיעור לא נמצא'});await audit(req,'update','class',req.params.id,b);res.json(r.rows[0]);
+  if(!r.rowCount)return res.status(404).json({error:'׳”׳©׳™׳¢׳•׳¨ ׳׳ ׳ ׳׳¦׳'});await audit(req,'update','class',req.params.id,b);res.json(r.rows[0]);
 });
 
 app.get('/api/students',auth,async(req,res)=>{
@@ -242,22 +245,22 @@ app.get('/api/students',auth,async(req,res)=>{
   const r=await q(`SELECT s.*,c.name class_name,c.extension_path,y.name yemot_system_name,y.system_number FROM students s LEFT JOIN classes c ON c.id=s.class_id LEFT JOIN yemot_systems y ON y.id=c.yemot_system_id WHERE ${wh.join(' AND ')} ORDER BY c.name NULLS LAST,s.name`,p);res.json(r.rows);
 });
 app.post('/api/students',auth,allow('admin','secretary'),async(req,res)=>{
-  const b=req.body;const phone=normalizePhone(b.phone);if(!phone)return res.status(400).json({error:'טלפון חסר'});if(!(await validClass(req.user.organization_id,b.class_id)))return res.status(400).json({error:'השיעור אינו שייך לארגון'});
+  const b=req.body;const phone=normalizePhone(b.phone);if(!phone)return res.status(400).json({error:'׳˜׳׳₪׳•׳ ׳—׳¡׳¨'});if(!(await validClass(req.user.organization_id,b.class_id)))return res.status(400).json({error:'׳”׳©׳™׳¢׳•׳¨ ׳׳™׳ ׳• ׳©׳™׳™׳ ׳׳׳¨׳’׳•׳'});
   const r=await q('INSERT INTO students(organization_id,name,phone,class_id,external_id,notes) VALUES($1,$2,$3,$4,$5,$6) RETURNING *',[req.user.organization_id,b.name,phone,b.class_id||null,b.external_id||null,b.notes||null]);
   await audit(req,'create','student',String(r.rows[0].id),{name:b.name,phone});res.json(r.rows[0]);
 });
 app.put('/api/students/:id',auth,allow('admin','secretary'),async(req,res)=>{
-  const b=req.body;if(!(await validClass(req.user.organization_id,b.class_id)))return res.status(400).json({error:'השיעור אינו שייך לארגון'});
+  const b=req.body;if(!(await validClass(req.user.organization_id,b.class_id)))return res.status(400).json({error:'׳”׳©׳™׳¢׳•׳¨ ׳׳™׳ ׳• ׳©׳™׳™׳ ׳׳׳¨׳’׳•׳'});
   const r=await q(`UPDATE students SET name=$1,phone=$2,class_id=$3,external_id=$4,notes=$5,active=$6,updated_at=NOW() WHERE id=$7 AND organization_id=$8 RETURNING *`,[b.name,normalizePhone(b.phone),b.class_id||null,b.external_id||null,b.notes||null,b.active!==false,req.params.id,req.user.organization_id]);
-  if(!r.rowCount)return res.status(404).json({error:'התלמיד לא נמצא'});await audit(req,'update','student',req.params.id,{name:b.name});res.json(r.rows[0]);
+  if(!r.rowCount)return res.status(404).json({error:'׳”׳×׳׳׳™׳“ ׳׳ ׳ ׳׳¦׳'});await audit(req,'update','student',req.params.id,{name:b.name});res.json(r.rows[0]);
 });
 app.delete('/api/students/:id',auth,allow('admin'),async(req,res)=>{await q('UPDATE students SET active=false,updated_at=NOW() WHERE id=$1 AND organization_id=$2',[req.params.id,req.user.organization_id]);await audit(req,'archive','student',req.params.id);res.json({ok:true});});
 
 function getCell(row,names){for(const n of names){const k=Object.keys(row).find(x=>String(x).trim().toLowerCase()===n.toLowerCase());if(k&&row[k]!==undefined&&row[k]!==null&&String(row[k]).trim()!=='')return row[k];}return '';}
 app.post('/api/students/import',auth,allow('admin','secretary'),upload.single('file'),async(req,res)=>{
-  if(!req.file)return res.status(400).json({error:'לא התקבל קובץ'});const wb=XLSX.read(req.file.buffer,{type:'buffer'});const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+  if(!req.file)return res.status(400).json({error:'׳׳ ׳”׳×׳§׳‘׳ ׳§׳•׳‘׳¥'});const wb=XLSX.read(req.file.buffer,{type:'buffer'});const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
   const org=req.user.organization_id;const classes=(await q('SELECT id,name FROM classes WHERE organization_id=$1',[org])).rows;let imported=0,updated=0,skipped=0;
-  for(const row of rows){const name=String(getCell(row,['שם','שם מלא','name','student'])).trim();const phone=normalizePhone(getCell(row,['טלפון','פלאפון','נייד','phone','mobile']));const className=String(getCell(row,['שיעור','כיתה','class','group'])).trim();if(!name||!phone){skipped++;continue;}let classId=null;
+  for(const row of rows){const name=String(getCell(row,['׳©׳','׳©׳ ׳׳׳','name','student'])).trim();const phone=normalizePhone(getCell(row,['׳˜׳׳₪׳•׳','׳₪׳׳׳₪׳•׳','׳ ׳™׳™׳“','phone','mobile']));const className=String(getCell(row,['׳©׳™׳¢׳•׳¨','׳›׳™׳×׳”','class','group'])).trim();if(!name||!phone){skipped++;continue;}let classId=null;
     if(className){let c=classes.find(x=>x.name.trim()===className);if(!c){c=(await q('INSERT INTO classes(organization_id,name) VALUES($1,$2) RETURNING id,name',[org,className])).rows[0];classes.push(c);}classId=c.id;}
     const r=await q(`INSERT INTO students(organization_id,name,phone,class_id) VALUES($1,$2,$3,$4)
       ON CONFLICT(organization_id,phone) DO UPDATE SET name=EXCLUDED.name,class_id=COALESCE(EXCLUDED.class_id,students.class_id),active=true,updated_at=NOW() RETURNING (xmax=0) inserted`,[org,name,phone,classId]);
@@ -289,7 +292,7 @@ async function buildAttendance(orgId,day,classId=null){
 }
 app.get('/api/attendance',auth,async(req,res)=>res.json(await buildAttendance(req.user.organization_id,String(req.query.day||isoDay()),scopeClass(req)||req.query.class_id||null)));
 app.post('/api/attendance/override',auth,allow('admin','secretary','class_teacher'),async(req,res)=>{
-  const b=req.body;const chk=await q('SELECT class_id FROM students WHERE id=$1 AND organization_id=$2',[b.student_id,req.user.organization_id]);if(!chk.rowCount)return res.status(404).json({error:'התלמיד לא נמצא'});if(req.user.role==='class_teacher'&&Number(chk.rows[0].class_id)!==Number(req.user.class_id))return res.status(403).json({error:'forbidden'});
+  const b=req.body;const chk=await q('SELECT class_id FROM students WHERE id=$1 AND organization_id=$2',[b.student_id,req.user.organization_id]);if(!chk.rowCount)return res.status(404).json({error:'׳”׳×׳׳׳™׳“ ׳׳ ׳ ׳׳¦׳'});if(req.user.role==='class_teacher'&&Number(chk.rows[0].class_id)!==Number(req.user.class_id))return res.status(403).json({error:'forbidden'});
   await q(`INSERT INTO attendance_overrides(organization_id,student_id,day,status,note,user_id) VALUES($1,$2,$3,$4,$5,$6)
     ON CONFLICT(student_id,day) DO UPDATE SET status=EXCLUDED.status,note=EXCLUDED.note,user_id=EXCLUDED.user_id,organization_id=EXCLUDED.organization_id,created_at=NOW()`,[req.user.organization_id,b.student_id,b.day,b.status,b.note||null,req.user.id]);
   await audit(req,'override','attendance',`${b.student_id}:${b.day}`,b);res.json({ok:true});
@@ -302,9 +305,9 @@ app.get('/api/reports/summary',auth,async(req,res)=>{
 app.get('/api/users',auth,allow('admin'),async(req,res)=>res.json((await q(`SELECT u.id,u.name,u.email,m.role,m.class_id,m.active,m.created_at
   FROM organization_members m JOIN users u ON u.id=m.user_id WHERE m.organization_id=$1 ORDER BY u.name`,[req.user.organization_id])).rows));
 app.post('/api/users',auth,allow('admin'),async(req,res)=>{
-  const b=req.body;if(!(await validClass(req.user.organization_id,b.class_id)))return res.status(400).json({error:'השיעור אינו שייך לארגון'});const email=String(b.email||'').trim().toLowerCase();if(!email)return res.status(400).json({error:'אימייל חסר'});
+  const b=req.body;if(!(await validClass(req.user.organization_id,b.class_id)))return res.status(400).json({error:'׳”׳©׳™׳¢׳•׳¨ ׳׳™׳ ׳• ׳©׳™׳™׳ ׳׳׳¨׳’׳•׳'});const email=String(b.email||'').trim().toLowerCase();if(!email)return res.status(400).json({error:'׳׳™׳׳™׳™׳ ׳—׳¡׳¨'});
   let user=(await q('SELECT * FROM users WHERE lower(email)=lower($1)',[email])).rows[0];
-  if(!user){if(!b.password)return res.status(400).json({error:'סיסמה זמנית חסרה'});const hash=await bcrypt.hash(String(b.password),11);user=(await q('INSERT INTO users(name,email,password_hash) VALUES($1,$2,$3) RETURNING *',[b.name,email,hash])).rows[0];}
+  if(!user){if(!b.password)return res.status(400).json({error:'׳¡׳™׳¡׳׳” ׳–׳׳ ׳™׳× ׳—׳¡׳¨׳”'});const hash=await bcrypt.hash(String(b.password),11);user=(await q('INSERT INTO users(name,email,password_hash) VALUES($1,$2,$3) RETURNING *',[b.name,email,hash])).rows[0];}
   const r=await q(`INSERT INTO organization_members(organization_id,user_id,role,class_id,active) VALUES($1,$2,$3,$4,$5)
     ON CONFLICT(organization_id,user_id) DO UPDATE SET role=EXCLUDED.role,class_id=EXCLUDED.class_id,active=EXCLUDED.active,updated_at=NOW()
     RETURNING id,organization_id,user_id,role,class_id,active`,[req.user.organization_id,user.id,b.role||'viewer',b.class_id||null,b.active!==false]);
@@ -317,16 +320,16 @@ app.get('/api/settings/status',auth,async(req,res)=>{
 });
 app.post('/api/integrations/pull-live',auth,allow('admin'),async(req,res)=>{
   const systems=(await q('SELECT id FROM yemot_systems WHERE organization_id=$1 AND active=true AND api_key_encrypted IS NOT NULL',[req.user.organization_id])).rows;
-  if(!systems.length)return res.status(400).json({error:'אין עדיין מערכת ימות עם API Key. ניתן להגדיר מספר מערכת בלבד ולהוסיף מפתח מאוחר יותר.'});
-  res.status(501).json({error:'המערכות מוכנות לחיבור. adapter של GetIncomingCalls יחובר לאחר קבלת מפרט ה-API והמפתח.'});
+  if(!systems.length)return res.status(400).json({error:'׳׳™׳ ׳¢׳“׳™׳™׳ ׳׳¢׳¨׳›׳× ׳™׳׳•׳× ׳¢׳ API Key. ׳ ׳™׳×׳ ׳׳”׳’׳“׳™׳¨ ׳׳¡׳₪׳¨ ׳׳¢׳¨׳›׳× ׳‘׳׳‘׳“ ׳•׳׳”׳•׳¡׳™׳£ ׳׳₪׳×׳— ׳׳׳•׳—׳¨ ׳™׳•׳×׳¨.'});
+  res.status(501).json({error:'׳”׳׳¢׳¨׳›׳•׳× ׳׳•׳›׳ ׳•׳× ׳׳—׳™׳‘׳•׳¨. adapter ׳©׳ GetIncomingCalls ׳™׳—׳•׳‘׳¨ ׳׳׳—׳¨ ׳§׳‘׳׳× ׳׳₪׳¨׳˜ ׳”-API ׳•׳”׳׳₪׳×׳—.'});
 });
 app.get('/api/audit',auth,allow('admin'),async(req,res)=>res.json((await q(`SELECT a.*,u.name user_name FROM audit_log a LEFT JOIN users u ON u.id=a.user_id WHERE a.organization_id=$1 ORDER BY a.created_at DESC LIMIT 100`,[req.user.organization_id])).rows));
 
 app.use((_req,res)=>res.sendFile(path.join(rootDir,'public/index.html')));
 app.use((err,_req,res,_next)=>{
   console.error(err);
-  if(err?.code==='23505')return res.status(409).json({error:'כבר קיים פריט עם הערך הזה בארגון הנוכחי'});
-  res.status(500).json({error:IS_PROD?'שגיאת שרת':String(err?.message||err)});
+  if(err?.code==='23505')return res.status(409).json({error:'׳›׳‘׳¨ ׳§׳™׳™׳ ׳₪׳¨׳™׳˜ ׳¢׳ ׳”׳¢׳¨׳ ׳”׳–׳” ׳‘׳׳¨׳’׳•׳ ׳”׳ ׳•׳›׳—׳™'});
+  res.status(500).json({error:IS_PROD?'׳©׳’׳™׳׳× ׳©׳¨׳×':String(err?.message||err)});
 });
 
 export { app, dbReady, pool };
