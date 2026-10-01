@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#4b1d8f" />
+  <title>נחל״ס — מערכת נוכחות</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div id="toast"></div>
+<section id="loginView" class="login-wrap">
+  <div class="login-card">
+    <div class="brand-mark">נ</div>
+    <h1>נחל״ס</h1><p>מערכת נוכחות מחדרי ועידה</p>
+    <form id="loginForm" class="stack">
+      <label>אימייל<input id="loginEmail" type="email" autocomplete="username" required></label>
+      <label>סיסמה<input id="loginPassword" type="password" autocomplete="current-password" required></label>
+      <button class="btn primary" type="submit">כניסה למערכת</button>
+    </form>
+    <small>הגישה מוגנת ומיועדת למורשים בלבד</small>
+  </div>
+</section>
+<div id="appView" class="app hidden">
+  <aside class="sidebar">
+    <div class="brand"><div class="brand-mark small">נ</div><div><b>נחל״ס</b><span>נוכחות ו־LIVE</span></div></div>
+    <nav id="nav">
+      <button data-page="dashboard" class="active">⌂ <span>לוח בקרה</span></button>
+      <button data-page="live">● <span>LIVE חדרים</span></button>
+      <button data-page="attendance">✓ <span>נוכחות</span></button>
+      <button data-page="students">♙ <span>תלמידים</span></button>
+      <button data-page="classes">▦ <span>שיעורים ושלוחות</span></button>
+      <button data-page="reports">▥ <span>דוחות</span></button>
+      <button data-page="users" data-role="admin">♧ <span>משתמשים</span></button>
+      <button data-page="settings" data-role="admin">⚙ <span>הגדרות וחיבור</span></button>
+    </nav>
+    <div class="side-bottom"><div id="userBox"></div><button id="logoutBtn" class="ghost">יציאה</button></div>
+  </aside>
+  <main>
+    <header><div><h2 id="pageTitle">לוח בקרה</h2><p id="pageSub">תמונת מצב עדכנית</p></div><div class="header-actions"><span id="connBadge" class="badge">בודק חיבור…</span><button id="refreshBtn" class="icon-btn">↻</button></div></header>
+    <div id="content"></div>
+  </main>
+</div>
+<template id="modalTpl"><div class="modal-backdrop"><div class="modal"><button class="modal-x">×</button><div class="modal-body"></div></div></div></template>
+<script src="/app.js" type="module"></script>
+</body>
+</html>
